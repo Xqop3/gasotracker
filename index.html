@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0f1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="GasoTracker">
+<title>GasoTracker v3</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{--bg:#0f1117;--panel:#171b26;--panel2:#1e2336;--border:#2a3050;--amber:#f5a623;--green:#22c55e;--red:#ef4444;--blue:#3b82f6;--purple:#a855f7;--txt:#e8eaf0;--muted:#8892aa;--font:'Rajdhani',sans-serif;--mono:'IBM Plex Mono',monospace;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:var(--txt);font-family:var(--font);overflow-x:hidden;}
+/* NAV */
+.nav{position:fixed;bottom:0;left:0;right:0;background:var(--panel);border-top:1px solid var(--border);display:flex;z-index:1000;padding-bottom:env(safe-area-inset-bottom);}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0;border:none;background:none;color:var(--muted);font-family:var(--font);font-size:9px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;transition:color .2s;}
+.nb.active{color:var(--amber);}
+.ni{font-size:18px;line-height:1;}
+/* PAGES */
+.page{display:none;padding:16px 16px 90px;max-width:500px;margin:0 auto;}
+.page.active{display:block;}
+#page-map{padding:0;max-width:100%;}
+#page-map.active{display:flex;flex-direction:column;height:100vh;}
+/* TYPOGRAPHY */
+.pt{font-size:24px;font-weight:700;letter-spacing:1px;margin-bottom:4px;}
+.ps{font-size:13px;color:var(--muted);}
+/* VEHICLE TABS */
+.vt-wrap{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px;}
+.vt-wrap::-webkit-scrollbar{display:none;}
+.vt{flex-shrink:0;padding:8px 14px;background:var(--panel);border:1px solid var(--border);border-radius:10px;text-align:center;cursor:pointer;transition:all .2s;font-family:var(--font);}
+.vt.active{border-color:var(--amber);background:rgba(245,166,35,.08);}
+.vt-icon{font-size:20px;}.vt-name{font-size:12px;font-weight:600;margin-top:2px;}.vt-year{font-size:10px;color:var(--muted);}
+/* CARDS */
+.card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;}
+.ct{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
+/* METRICS */
+.mg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.m{background:var(--panel2);border-radius:10px;padding:12px 14px;}
+.ml{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+.mv{font-size:22px;font-weight:700;font-family:var(--mono);}
+.mu{font-size:12px;color:var(--muted);margin-left:2px;}
+.good{color:var(--green);}.warn{color:var(--amber);}.bad{color:var(--red);}
+/* FORM */
+.fg{margin-bottom:14px;}
+.fl{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;display:block;}
+.fi{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:var(--txt);font-family:var(--mono);font-size:14px;outline:none;transition:border-color .2s;}
+.fi:focus{border-color:var(--amber);}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+/* TOGGLE */
+.trow{display:flex;align-items:center;justify-content:space-between;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
+.tog{position:relative;width:44px;height:24px;cursor:pointer;}.tog input{display:none;}
+.tsl{position:absolute;inset:0;background:var(--border);border-radius:24px;transition:.2s;}
+.tsl:before{content:'';position:absolute;width:20px;height:20px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.2s;}
+.tog input:checked+.tsl{background:var(--amber);}
+.tog input:checked+.tsl:before{transform:translateX(20px);}
+/* BUTTONS */
+.btn{width:100%;padding:13px;border:none;border-radius:10px;font-family:var(--font);font-size:14px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .2s;margin-top:4px;}
+.bp{background:var(--amber);color:#000;}.bp:hover{opacity:.85;}
+.bd{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3);}
+.bb{background:rgba(59,130,246,.15);color:var(--blue);border:1px solid rgba(59,130,246,.3);}
+.bg2{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3);}
+.bpu{background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.3);}
+/* ALERTS */
+.ab{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;}
+.ab.warn{background:rgba(245,166,35,.1);border-color:rgba(245,166,35,.3);}
+.ab.info{background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.3);}
+.ai{font-size:18px;flex-shrink:0;}.at{font-size:13px;line-height:1.4;}.at b{color:var(--txt);}
+/* HISTORY */
+.hi{background:var(--panel2);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.hil{flex:1;}.hid{font-size:13px;font-weight:600;}.him{font-size:12px;color:var(--muted);margin-top:2px;}
+.his{font-size:11px;color:var(--blue);margin-top:1px;}
+.hir{text-align:right;flex-shrink:0;}
+.hkml{font-size:18px;font-weight:700;font-family:var(--mono);}
+.hkml.good{color:var(--green);}.hkml.warn{color:var(--amber);}.hkml.bad{color:var(--red);}.hkml.part{color:var(--muted);font-size:12px;}
+.hdel{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px;}
+/* MAINT */
+.mi{background:var(--panel2);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+.mi-icon{font-size:22px;flex-shrink:0;}.mi-info{flex:1;}.mi-name{font-size:14px;font-weight:600;}.mi-detail{font-size:12px;color:var(--muted);margin-top:2px;}
+.mi-status{text-align:right;flex-shrink:0;}
+.sb{font-size:10px;font-weight:700;letter-spacing:1px;padding:3px 8px;border-radius:6px;text-transform:uppercase;}
+.sb-ok{background:rgba(34,197,94,.15);color:var(--green);}.sb-soon{background:rgba(245,166,35,.15);color:var(--amber);}.sb-due{background:rgba(239,68,68,.15);color:var(--red);}
+.mi-km{font-size:11px;color:var(--muted);margin-top:3px;}
+/* CHART */
+.cw{position:relative;height:190px;margin-top:8px;}
+/* STATIONS */
+.sti{background:var(--panel2);border-radius:10px;padding:12px 14px;margin-bottom:8px;}
+.stn{font-size:14px;font-weight:600;margin-bottom:6px;}
+.stb{display:flex;align-items:center;gap:8px;}
+.stbg{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden;}
+.stbf{height:100%;background:var(--amber);border-radius:4px;transition:width .5s;}
+.stkml{font-size:13px;font-weight:700;font-family:var(--mono);color:var(--amber);min-width:55px;text-align:right;}
+.stf{font-size:11px;color:var(--muted);margin-top:4px;}
+.sta-tab{flex:1;padding:8px 4px;background:var(--panel);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;}
+.sta-tab.active{background:rgba(245,166,35,.1);border-color:var(--amber);color:var(--amber);}
+.winner-card{background:linear-gradient(135deg,rgba(245,166,35,.12),rgba(245,166,35,.04));border:1px solid rgba(245,166,35,.35);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;}
+.winner-trophy{font-size:36px;flex-shrink:0;}
+.winner-info{flex:1;}.winner-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--amber);margin-bottom:3px;}
+.winner-name{font-size:16px;font-weight:700;}.winner-meta{font-size:12px;color:var(--muted);margin-top:2px;}
+.winner-val{text-align:right;flex-shrink:0;}.winner-num{font-size:26px;font-weight:700;font-family:var(--mono);color:var(--amber);}.winner-unit{font-size:11px;color:var(--muted);}
+.sta-rank{background:var(--panel2);border-radius:10px;padding:12px 14px;margin-bottom:8px;}
+.sta-rank-top{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.sta-rank-pos{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+.pos-1{background:rgba(245,166,35,.2);color:var(--amber);}.pos-2{background:rgba(148,163,184,.15);color:#94a3b8;}.pos-3{background:rgba(180,120,60,.15);color:#b47c3c;}.pos-n{background:var(--border);color:var(--muted);}
+.sta-rank-name{font-size:14px;font-weight:600;flex:1;}.sta-rank-main{font-size:16px;font-weight:700;font-family:var(--mono);}
+.sta-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+.sta-bar-label{font-size:10px;color:var(--muted);width:48px;flex-shrink:0;text-align:right;}
+.sta-bar-bg{flex:1;height:5px;background:var(--border);border-radius:4px;overflow:hidden;}
+.sta-bar-fill-g{height:100%;background:var(--green);border-radius:4px;transition:width .5s;}
+.sta-bar-fill-r{height:100%;background:var(--red);border-radius:4px;transition:width .5s;}
+.sta-bar-fill-b{height:100%;background:var(--blue);border-radius:4px;transition:width .5s;}
+.sta-bar-val{font-size:10px;font-weight:700;font-family:var(--mono);min-width:52px;}
+.sta-rank-footer{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:6px;border-top:1px solid var(--border);padding-top:6px;}
+/* TIPS */
+.tip{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border);}
+.tip:last-child{border-bottom:none;padding-bottom:0;}
+.tiw{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.tiw-r{background:rgba(239,68,68,.15);}.tiw-a{background:rgba(245,166,35,.12);}.tiw-g{background:rgba(34,197,94,.12);}.tiw-b{background:rgba(59,130,246,.12);}
+.tib{flex:1;}.tit{font-size:14px;font-weight:700;margin-bottom:3px;}
+.tit.r{color:var(--red);}.tit.a{color:var(--amber);}.tit.g{color:var(--green);}.tit.b{color:var(--blue);}
+.tid{font-size:12px;color:var(--muted);line-height:1.6;}
+.tia{display:inline-block;margin-top:6px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:4px 10px;border-radius:6px;background:var(--panel2);color:var(--txt);}
+.tscore{display:flex;align-items:center;gap:10px;background:var(--panel2);border-radius:10px;padding:12px 14px;margin-bottom:12px;}
+.tsn{font-size:32px;font-weight:700;font-family:var(--mono);}
+/* MAP */
+.map-top{background:var(--panel);padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0;}
+#map-c{position:relative;flex:1;min-height:0;}
+#lmap{width:100%;height:100%;}
+.fab{position:absolute;z-index:500;border:none;border-radius:12px;font-size:12px;font-weight:700;font-family:var(--font);cursor:pointer;letter-spacing:.5px;padding:9px 12px;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.5);}
+.fab-loc{top:12px;right:12px;background:var(--blue);color:#fff;}
+.fab-rt{top:58px;right:12px;background:var(--panel);border:1px solid var(--border);color:var(--txt);}
+.fab-rt.rec{background:var(--red);color:#fff;border-color:var(--red);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.7;}}
+.map-bot{background:var(--panel);border-top:1px solid var(--border);padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom) + 65px);max-height:230px;overflow-y:auto;flex-shrink:0;}
+.mbt{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+.stac{background:var(--panel2);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer;}
+.stac-n{font-size:13px;font-weight:600;}.stac-d{font-size:11px;color:var(--muted);}
+.stac-btn{background:var(--amber);color:#000;border:none;border-radius:8px;padding:6px 10px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;}
+/* ROUTE */
+.ri{background:var(--panel2);border-radius:10px;padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+.rdel{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;}
+/* VEHICLE MANAGE */
+.vi{background:var(--panel2);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+.vi-icon{font-size:28px;}.vi-info{flex:1;}.vi-name{font-size:15px;font-weight:700;}.vi-meta{font-size:12px;color:var(--muted);margin-top:2px;}
+.vi-actions{display:flex;gap:6px;}
+.vi-btn{background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-family:var(--font);font-size:12px;cursor:pointer;color:var(--muted);}
+.vi-btn.del{color:var(--red);border-color:rgba(239,68,68,.3);}
+.vi-btn.reset{color:var(--amber);border-color:rgba(245,166,35,.3);}
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9000;align-items:flex-end;justify-content:center;}
+.modal-box{background:var(--panel);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:500px;border-top:1px solid var(--border);padding-bottom:calc(20px + env(safe-area-inset-bottom));}
+.modal-title{font-size:18px;font-weight:700;margin-bottom:4px;}
+.modal-sub{font-size:13px;color:var(--muted);margin-bottom:16px;}
+/* GPS NOTICE */
+.gps-notice{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);border-radius:10px;padding:14px;margin-bottom:12px;font-size:13px;line-height:1.7;}
+.gps-notice b{color:var(--blue);}
+.gps-step{display:flex;gap:8px;align-items:flex-start;margin-top:8px;}
+.gps-num{width:22px;height:22px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+/* MISC */
+.empty{text-align:center;padding:32px 16px;color:var(--muted);}
+.ei{font-size:40px;margin-bottom:10px;}.et{font-size:13px;line-height:1.6;}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-80px);background:var(--green);color:#000;font-family:var(--font);font-size:14px;font-weight:600;padding:12px 24px;border-radius:10px;z-index:9999;transition:transform .3s;white-space:nowrap;}
+.toast.show{transform:translateX(-50%) translateY(0);}.toast.err{background:var(--red);color:#fff;}
+.ia{font-size:12px;color:var(--amber);margin-top:4px;display:none;}.ia.show{display:block;}
+.sep{border:none;border-top:1px solid var(--border);margin:14px 0;}
+.leaflet-popup-content-wrapper{background:var(--panel)!important;color:var(--txt)!important;border:1px solid var(--border)!important;border-radius:10px!important;}
+.leaflet-popup-tip{background:var(--panel)!important;}
+.leaflet-popup-content{font-family:var(--font);font-size:14px;margin:12px 16px!important;}
+.pname{font-size:15px;font-weight:700;margin-bottom:4px;}.pdist{font-size:12px;color:var(--muted);margin-bottom:10px;}
+.preg{background:var(--amber);color:#000;border:none;border-radius:8px;padding:8px 16px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;width:100%;}
+.emoji-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:8px;}
+.eg-opt{font-size:24px;text-align:center;padding:8px;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all .2s;}
+.eg-opt.sel{border-color:var(--amber);background:rgba(245,166,35,.1);}
+</style>
+<meta name="application-name" content="GasoTracker">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<script>
+function makeIcon(size){
+  const c=document.createElement('canvas');c.width=c.height=size;const x=c.getContext('2d');
+  x.fillStyle='#0f1117';x.fillRect(0,0,size,size);
+  const r=size*.15;x.beginPath();x.moveTo(r,0);x.lineTo(size-r,0);x.quadraticCurveTo(size,0,size,r);x.lineTo(size,size-r);x.quadraticCurveTo(size,size,size-r,size);x.lineTo(r,size);x.quadraticCurveTo(0,size,0,size-r);x.lineTo(0,r);x.quadraticCurveTo(0,0,r,0);x.closePath();x.fillStyle='#171b26';x.fill();
+  const cx=size/2,cy=size*.48,s2=size*.26;
+  x.beginPath();x.moveTo(cx,cy-s2*1.05);x.bezierCurveTo(cx+s2*.85,cy-s2*.2,cx+s2,cy+s2*.15,cx,cy+s2*.9);x.bezierCurveTo(cx-s2,cy+s2*.15,cx-s2*.85,cy-s2*.2,cx,cy-s2*1.05);x.fillStyle='#f5a623';x.fill();
+  x.fillStyle='#000';x.font=`bold ${Math.floor(size*.19)}px Arial`;x.textAlign='center';x.textBaseline='middle';x.fillText('GT',cx,cy+s2*.05);
+  return c.toDataURL('image/png');
+}
+function setupPWA(){
+  // manifest.json is served as a real file
+  const li=document.createElement('link');li.rel='apple-touch-icon';li.href='icon-192.png';document.head.appendChild(li);
+}
+function setupSW(){
+  if(!('serviceWorker' in navigator))return;
+  const sw=`const C='gt-v3';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['.'])).then(()=>self.skipWaiting()));});self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(caches.match(e.request).then(ca=>{const fr=fetch(e.request).then(r=>{if(r.ok){const cl=r.clone();caches.open(C).then(c=>c.put(e.request,cl));}return r;}).catch(()=>ca);return ca||fr;}));});`;
+  const url=URL.createObjectURL(new Blob([sw],{type:'text/javascript'}));
+  navigator.serviceWorker.register(url,{scope:'./'}).catch(()=>{});
+}
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;const b=document.getElementById('install-banner');if(b)b.style.display='flex';});
+window.addEventListener('appinstalled',()=>{const b=document.getElementById('install-banner');if(b)b.style.display='none';deferredPrompt=null;});
+function installApp(){if(!deferredPrompt)return;deferredPrompt.prompt();deferredPrompt.userChoice.then(()=>{deferredPrompt=null;});}
+document.addEventListener('DOMContentLoaded',()=>{setupPWA();setupSW();});
+</script>
+</head>
+<body>
+<div id="install-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9998;background:#f5a623;padding:10px 16px;align-items:center;gap:10px;max-width:500px;left:50%;transform:translateX(-50%);border-radius:0 0 12px 12px;">
+  <span style="font-size:22px">📲</span>
+  <div style="flex:1;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;color:#000">Instalar GasoTracker como app</div>
+  <button onclick="installApp()" style="background:#000;color:#f5a623;border:none;border-radius:8px;padding:7px 14px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer">INSTALAR</button>
+  <button onclick="this.parentElement.style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:#000;line-height:1">✕</button>
+</div>
+
+
+<!-- PWA Install Banner -->
+<div id="install-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9998;background:#f5a623;padding:10px 16px;align-items:center;gap:10px;max-width:500px;margin:0 auto;">
+  <span style="font-size:20px">📲</span>
+  <div style="flex:1;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;color:#000">Instala GasoTracker como app</div>
+  <button onclick="installApp()" style="background:#000;color:#f5a623;border:none;border-radius:8px;padding:6px 14px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer">INSTALAR</button>
+  <button onclick="document.getElementById('install-banner').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;color:#000;padding:0 4px">✕</button>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- MODAL: Quick register from map -->
+<div id="mod-quick" class="modal-bg">
+<div class="modal-box">
+  <div class="modal-title" id="mq-title">⛽ Registrar carga</div>
+  <div class="modal-sub" id="mq-sta"></div>
+  <div class="fr" style="margin-bottom:12px">
+    <div><label class="fl">Odómetro (km)</label><input type="number" class="fi" id="mq-km" inputmode="decimal"></div>
+    <div><label class="fl">Total pagado ($)</label><input type="number" class="fi" id="mq-lit" inputmode="decimal" placeholder="Ej: 500"></div>
+  </div>
+  <div class="fr" style="margin-bottom:16px">
+    <div><label class="fl">Precio/L ($)</label><input type="number" class="fi" id="mq-price" inputmode="decimal"></div>
+    <div><label class="fl">¿Llenado completo?</label><div style="padding:13px 0"><label class="tog" style="display:block;margin:0 auto;width:44px"><input type="checkbox" id="mq-full" checked><span class="tsl"></span></label></div></div>
+  </div>
+  <div style="display:flex;gap:10px"><button class="btn bd" style="margin:0;flex:1" onclick="closeModal('mod-quick')">Cancelar</button><button class="btn bp" style="margin:0;flex:2" onclick="saveQuick()">⛽ GUARDAR</button></div>
+</div></div>
+
+<!-- MODAL: Add/Edit Vehicle -->
+<div id="mod-veh" class="modal-bg">
+<div class="modal-box">
+  <div class="modal-title" id="mv-title">Agregar vehículo</div>
+  <div class="modal-sub">Personaliza tu vehículo</div>
+  <div class="fg"><label class="fl">Icono</label>
+    <div class="emoji-grid" id="eg">
+      <div class="eg-opt sel" data-e="🚗">🚗</div><div class="eg-opt" data-e="🚙">🚙</div><div class="eg-opt" data-e="🛻">🛻</div>
+      <div class="eg-opt" data-e="🚕">🚕</div><div class="eg-opt" data-e="🚐">🚐</div><div class="eg-opt" data-e="🏎">🏎</div>
+      <div class="eg-opt" data-e="🚌">🚌</div><div class="eg-opt" data-e="🛵">🛵</div><div class="eg-opt" data-e="🏍">🏍</div>
+    </div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label class="fl">Nombre</label><input type="text" class="fi" id="mv-name" placeholder="Ej: Chevy Swing"></div>
+    <div class="fg"><label class="fl">Año</label><input type="text" class="fi" id="mv-year" placeholder="Ej: 1994"></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label class="fl">Combustible</label>
+      <select class="fi" id="mv-fuel"><option value="magna">Magna</option><option value="premium">Premium</option><option value="diesel">Diesel</option></select>
+    </div>
+    <div class="fg"><label class="fl">Min. km/L esperado</label><input type="number" class="fi" id="mv-thresh" inputmode="decimal" placeholder="Ej: 10"></div>
+  </div>
+  <input type="hidden" id="mv-id">
+  <div style="display:flex;gap:10px;margin-top:4px"><button class="btn bd" style="margin:0;flex:1" onclick="closeModal('mod-veh')">Cancelar</button><button class="btn bp" style="margin:0;flex:2" onclick="saveVehicle()">✓ GUARDAR VEHÍCULO</button></div>
+</div></div>
+
+<!-- PAGE: DASHBOARD -->
+<div id="page-dash" class="page active">
+  <div style="margin-bottom:16px"><div class="pt">⛽ GasoTracker</div><div class="ps" id="d-date"></div></div>
+  <div class="vt-wrap" id="d-vt"></div>
+  <div id="d-alerts"></div>
+  <div class="mg" id="d-metrics"></div>
+  <div class="card"><div class="ct">Rendimiento — últimas 10 cargas</div><div class="cw"><canvas id="chart-kml"></canvas></div></div>
+  <div class="card"><div class="ct">💰 Resumen mensual</div><div id="d-monthly"></div></div>
+  <div class="card"><div class="ct">⛽ Estadísticas de precio</div><div id="d-price-stats"></div></div>
+  <div class="card"><div class="ct">Última carga</div><div id="d-last"></div></div>
+  <div class="card"><div class="ct">💡 Diagnóstico inteligente</div><div id="d-tips"></div></div>
+</div>
+
+<!-- PAGE: MAP GPS -->
+<div id="page-map" class="page">
+  <div class="map-top">
+    <span style="font-size:16px;font-weight:700;flex:1">🗺 Mapa GPS</span>
+    <div style="display:flex;gap:6px" id="map-vt"></div>
+  </div>
+  <div id="map-c">
+    <div id="lmap"></div>
+    <button class="fab fab-loc" onclick="locateMe()">📍 Ubicarme</button>
+    <button class="fab fab-rt" id="rt-btn" onclick="toggleRoute()">▶ Ruta</button>
+  </div>
+  <div class="map-bot">
+    <div class="mbt" id="map-btitle">Gasolineras cercanas</div>
+    <div id="map-stas"></div>
+    <div id="gps-info"></div>
+  </div>
+</div>
+
+<!-- PAGE: REGISTER -->
+<div id="page-reg" class="page">
+  <div style="margin-bottom:16px"><div class="pt">Nueva carga</div></div>
+  <div class="vt-wrap" id="r-vt"></div>
+  <div class="card">
+    <div class="fg" id="km-field">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <label class="fl" style="margin:0">Odómetro actual (km)</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <span style="font-size:11px;color:var(--muted)">Olvidé el odómetro</span>
+          <label class="tog"><input type="checkbox" id="r-no-km" onchange="toggleNoKm(this)"><span class="tsl"></span></label>
+        </label>
+      </div>
+      <input type="number" class="fi" id="r-km" inputmode="decimal" placeholder="Ej: 67500">
+      <div class="ia" id="r-km-err">⚠ Debe ser mayor al registro anterior</div>
+    </div>
+    <div id="no-km-notice" style="display:none;background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--amber);line-height:1.6;">
+      ℹ Esta carga se guardará <b>sin odómetro</b>. El costo y litros sí se registran, pero no se calculará km/L para esta entrada.
+    </div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Total pagado ($)</label><input type="number" class="fi" id="r-total" inputmode="decimal" placeholder="Ej: 500.00" oninput="calcLiters()"></div>
+      <div class="fg"><label class="fl">Precio/litro ($)</label><input type="number" class="fi" id="r-price" inputmode="decimal" placeholder="Ej: 24.90" oninput="calcLiters()"></div>
+    </div>
+    <!-- LITROS CALCULADOS SIEMPRE VISIBLE -->
+    <div style="background:var(--panel2);border-radius:10px;padding:14px 16px;margin-bottom:14px;border:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">Litros cargados (calculado)</span>
+        <span id="cost-price-alert" style="display:none;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;background:rgba(239,68,68,.15);color:var(--red)">⚠ Precio alto</span>
+      </div>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;">
+        <div style="display:flex;align-items:baseline;gap:6px;">
+          <div id="cost-total" style="font-size:34px;font-weight:700;color:var(--amber);font-family:var(--mono);line-height:1;">—</div>
+          <div id="cost-liters-unit" style="font-size:14px;color:var(--muted);padding-bottom:3px;"></div>
+        </div>
+        <div style="text-align:right;padding-bottom:2px;">
+          <div id="cost-vs-avg" style="font-size:11px;color:var(--muted);margin-bottom:2px;"></div>
+          <div id="cost-per-km" style="font-size:11px;color:var(--muted);"></div>
+        </div>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">Gasolinera</label><input type="text" class="fi" id="r-sta" placeholder="Ej: Pemex Constituyentes" list="sta-dl"><datalist id="sta-dl"></datalist></div>
+    <div class="fg"><label class="fl">Fecha</label><input type="date" class="fi" id="r-date"></div>
+    <div class="fg"><div class="trow"><span style="font-size:14px;font-weight:500">¿Llenado completo?</span><label class="tog"><input type="checkbox" id="r-full" checked><span class="tsl"></span></label></div><div class="ia" id="r-partial-note" style="color:var(--muted)">ℹ Parcial — km/L se calcula al próximo llenado completo</div></div>
+    <div class="fg"><label class="fl">Notas (opcional)</label><input type="text" class="fi" id="r-notes" placeholder="Ej: Viaje a Progreso"></div>
+    <button class="btn bp" onclick="saveRecord()">+ GUARDAR CARGA</button>
+  </div>
+</div>
+
+<!-- PAGE: HISTORY -->
+<div id="page-hist" class="page">
+  <div style="margin-bottom:16px"><div class="pt">Historial</div></div>
+  <div class="vt-wrap" id="h-vt"></div>
+  <div id="h-list"></div>
+</div>
+
+<!-- PAGE: STATIONS COMPARE -->
+<div id="page-sta" class="page">
+  <div style="margin-bottom:16px"><div class="pt">Gasolineras</div><div class="ps">Ranking por rendimiento y precio</div></div>
+  <div class="vt-wrap" id="sta-vt"></div>
+  <!-- Sort tabs -->
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <button id="sta-tab-kml" class="sta-tab active" onclick="setStaTab('kml')">🏆 Mejor rendimiento</button>
+    <button id="sta-tab-price" class="sta-tab" onclick="setStaTab('price')">💰 Precio por litro</button>
+    <button id="sta-tab-cost" class="sta-tab" onclick="setStaTab('cost')">📊 Costo total</button>
+  </div>
+  <div id="sta-winner" style="margin-bottom:12px"></div>
+  <div id="sta-list"></div>
+</div>
+
+<!-- PAGE: SETTINGS (vehicles, maintenance, routes) -->
+<div id="page-cfg" class="page">
+  <div style="margin-bottom:16px"><div class="pt">⚙ Configuración</div></div>
+
+  <div class="card">
+    <div class="ct">Mis vehículos</div>
+    <div id="veh-list"></div>
+    <button class="btn bb" style="margin-top:8px" onclick="openAddVehicle()">+ Agregar vehículo</button>
+  </div>
+
+  <div class="card">
+    <div class="ct">Mantenimiento</div>
+    <div class="vt-wrap" id="maint-vt"></div>
+    <div id="maint-list"></div>
+    <hr class="sep">
+    <div class="ct" style="margin-bottom:10px">Registrar servicio realizado</div>
+    <div class="fg"><label class="fl">Tipo de servicio</label>
+      <select class="fi" id="m-type">
+        <option value="aceite">Cambio de aceite</option><option value="llantas">Rotación de llantas</option>
+        <option value="filtro_aire">Filtro de aire</option><option value="bujias">Bujías</option>
+        <option value="frenos">Revisión de frenos</option><option value="filtro_combustible">Filtro de combustible</option>
+        <option value="banda">Banda de distribución</option><option value="liquido_trans">Líquido de transmisión</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Odómetro al servicio (km)</label><input type="number" class="fi" id="m-km" inputmode="decimal"></div>
+    <button class="btn bp" onclick="saveMaint()">✓ REGISTRAR SERVICIO</button>
+  </div>
+
+  <div class="card">
+    <div class="ct">Rutas grabadas</div>
+    <div id="routes-list"></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Exportar datos</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Descarga todos tus registros como archivo CSV para abrirlo en Excel o Google Sheets.</div>
+    <button class="btn bg2" onclick="exportCSV()">📥 EXPORTAR A CSV</button>
+  </div>
+
+  <div class="card">
+    <div class="ct">Zona de peligro</div>
+    <div class="vt-wrap" id="reset-vt"></div>
+    <button class="btn bd" onclick="resetVehicleData()" style="margin-bottom:8px">🗑 Borrar todos los registros de este vehículo</button>
+    <div style="font-size:12px;color:var(--muted);text-align:center">Esto borra las cargas y el mantenimiento registrado del vehículo seleccionado. El vehículo en sí no se elimina.</div>
+  </div>
+
+  <div class="card">
+    <div class="ct">GPS — Solución al problema de permisos</div>
+    <div class="gps-notice">
+      <b>¿Por qué no funciona el GPS?</b><br>
+      Chrome bloquea el GPS cuando abres el archivo directamente desde el teléfono (protocolo <code>file://</code>). Necesita estar en una dirección web (<code>https://</code>) para funcionar.<br>
+      <div class="gps-step"><div class="gps-num">1</div><div>Entra a <b>netlify.com/drop</b> desde tu computadora</div></div>
+      <div class="gps-step"><div class="gps-num">2</div><div>Arrastra este archivo HTML a la página</div></div>
+      <div class="gps-step"><div class="gps-num">3</div><div>Netlify te da un link <b>https://</b> gratis en 30 segundos</div></div>
+      <div class="gps-step"><div class="gps-num">4</div><div>Abre ese link en tu Android — el GPS funcionará inmediatamente</div></div>
+    </div>
+  </div>
+</div>
+
+<nav class="nav">
+  <button class="nb active" onclick="goPage('dash',this)"><span class="ni">📊</span>Inicio</button>
+  <button class="nb" onclick="goPage('map',this)"><span class="ni">🗺</span>Mapa GPS</button>
+  <button class="nb" onclick="goPage('reg',this)"><span class="ni">⛽</span>Cargar</button>
+  <button class="nb" onclick="goPage('hist',this)"><span class="ni">📋</span>Historial</button>
+  <button class="nb" onclick="goPage('cfg',this)"><span class="ni">⚙</span>Config</button>
+</nav>
+
+<script>
+// ══ CONSTANTS ══
+const MAINT_CFG={aceite:{n:'Cambio de aceite',i:'🛢',km:5000},llantas:{n:'Rotación de llantas',i:'🔄',km:10000},filtro_aire:{n:'Filtro de aire',i:'💨',km:15000},bujias:{n:'Bujías',i:'⚡',km:20000},frenos:{n:'Revisión de frenos',i:'🛑',km:20000},filtro_combustible:{n:'Filtro de combustible',i:'⛽',km:30000},banda:{n:'Banda de distribución',i:'⚙',km:60000},liquido_trans:{n:'Líquido de transmisión',i:'🔵',km:40000}};
+const MAINT_TIPS={aceite:'El aceite sucio aumenta la fricción interna y reduce el rendimiento 5–10%.',bujias:'Las bujías desgastadas provocan combustión incompleta — puedes perder hasta 30% de rendimiento.',filtro_aire:'Un filtro sucio restringe el oxígeno al motor y reduce el rendimiento 8–15%.',llantas:'La rotación pareja evita desgaste irregular que aumenta la resistencia al rodaje.',frenos:'Frenos con rozamiento generan resistencia y aumentan el consumo.',filtro_combustible:'Un filtro obstruido reduce el flujo de gasolina al motor.',banda:'Su falla puede destruir el motor — mantenla al día siempre.',liquido_trans:'El líquido sucio genera fricción innecesaria en la caja de cambios.'};
+
+// ══ STATE ══
+let activeVeh='', pendingSta='', map=null, userMark=null, userCirc=null, staMrks=[];
+let routeRec=false, routePts=[], routePoly=null, watchId=null;
+
+// ══ STORAGE ══
+const gd=()=>JSON.parse(localStorage.getItem('gd')||'{}');
+const sd=d=>localStorage.setItem('gd',JSON.stringify(d));
+const gv=()=>JSON.parse(localStorage.getItem('gv')||'[]');
+const sv=v=>localStorage.setItem('gv',JSON.stringify(v));
+const gm=()=>JSON.parse(localStorage.getItem('gm')||'{}');
+const sm=m=>localStorage.setItem('gm',JSON.stringify(m));
+const gr=()=>JSON.parse(localStorage.getItem('gr')||'[]');
+const sr=r=>localStorage.setItem('gr',JSON.stringify(r));
+
+function getVeh(){return gv();}
+function getActiveVeh(){return getVeh().find(v=>v.id===activeVeh)||getVeh()[0]||null;}
+
+// ══ EFFICIENCY ALGORITHM ══
+function calcEff(records){
+  // Records without km are stored but excluded from efficiency calculation
+  const noKmRecs=records.filter(r=>r.noKm||r.km===null||r.km===undefined);
+  const withKm=[...records.filter(r=>!r.noKm&&r.km!==null&&r.km!==undefined)].sort((a,b)=>a.km-b.km);
+  const res=[];let pl=0,ps=null,ff=false;
+  for(const r of withKm){
+    if(!ff){if(r.full){ff=true;ps=r.km;pl=0;}res.push({...r,kml:null,partial:true});continue;}
+    pl+=r.liters;
+    if(r.full){const dist=r.km-ps,kml=dist>0?Math.round(dist/pl*100)/100:null;res.push({...r,kml,partial:false});ps=r.km;pl=0;}
+    else res.push({...r,kml:null,partial:true});
+  }
+  // Add no-km records marked clearly
+  noKmRecs.forEach(r=>res.push({...r,kml:null,partial:true,noKm:true}));
+  return res.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+}
+
+function getStats(vid){
+  const d=gd()[vid]||[];const eff=calcEff(d);const wk=eff.filter(r=>r.kml!==null);
+  return{avg:wk.length?Math.round(wk.reduce((s,r)=>s+r.kml,0)/wk.length*100)/100:null,best:wk.length?Math.max(...wk.map(r=>r.kml)):null,worst:wk.length?Math.min(...wk.map(r=>r.kml)):null,totalSpent:d.reduce((s,r)=>s+(r.liters*r.price),0),lastKm:d.filter(r=>r.km).length?Math.max(...d.filter(r=>r.km).map(r=>r.km)):null,records:eff,rawRecords:d};
+}
+
+// ══ VEHICLE TABS ══
+function renderVehTabs(containerId, small){
+  const c=document.getElementById(containerId);if(!c)return;
+  const vehs=getVeh();
+  if(!vehs.length){c.innerHTML='<div style="color:var(--muted);font-size:13px">Sin vehículos — agrega uno en Config ⚙</div>';return;}
+  c.innerHTML=vehs.map(v=>`<div class="vt ${v.id===activeVeh?'active':''}" onclick="switchVeh('${v.id}')"><div class="vt-icon">${v.icon}</div><div class="vt-name" style="${small?'font-size:11px':''}">${v.name}</div><div class="vt-year">${v.year}</div></div>`).join('');
+}
+
+function switchVeh(id){activeVeh=id;renderAll();}
+
+// ══ DASHBOARD ══
+function renderDash(){
+  document.getElementById('d-date').textContent=new Date().toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'});
+  renderVehTabs('d-vt');
+  const veh=getActiveVeh();
+  if(!veh){document.getElementById('d-alerts').innerHTML='<div class="ab info"><span class="ai">ℹ️</span><div class="at">Agrega tu primer vehículo en <b>Config ⚙</b> para comenzar.</div></div>';document.getElementById('d-metrics').innerHTML='';document.getElementById('d-last').innerHTML='';document.getElementById('d-tips').innerHTML='';return;}
+  const s=getStats(activeVeh);
+  let al='';
+  if(s.avg!==null&&s.avg<veh.threshold)al+=`<div class="ab"><span class="ai">⚠️</span><div class="at"><b>Rendimiento bajo</b> — ${s.avg} km/L bajo el mínimo (${veh.threshold} km/L)</div></div>`;
+  const maint=gm()[activeVeh]||{};
+  Object.entries(MAINT_CFG).forEach(([k,m])=>{const last=maint[k]||0,rem=(last+m.km)-(s.lastKm||0);if(rem<=500&&rem>0)al+=`<div class="ab warn"><span class="ai">🔧</span><div class="at"><b>${m.n}</b> — Faltan ~${rem} km</div></div>`;else if(rem<=0)al+=`<div class="ab"><span class="ai">🔴</span><div class="at"><b>${m.n}</b> — Vencido hace ${Math.abs(rem)} km</div></div>`;});
+  document.getElementById('d-alerts').innerHTML=al;
+  const cl=v=>v===null?'':v>=veh.threshold?'good':v>=(veh.threshold*.85)?'warn':'bad';
+  document.getElementById('d-metrics').innerHTML=`<div class="m"><div class="ml">Promedio</div><div class="mv ${cl(s.avg)}">${s.avg??'—'}<span class="mu">km/L</span></div></div><div class="m"><div class="ml">Mejor</div><div class="mv good">${s.best??'—'}<span class="mu">km/L</span></div></div><div class="m"><div class="ml">Peor</div><div class="mv ${cl(s.worst)}">${s.worst??'—'}<span class="mu">km/L</span></div></div><div class="m"><div class="ml">Total gastado</div><div class="mv">${s.totalSpent?'$'+Math.round(s.totalSpent).toLocaleString('es-MX'):'—'}</div></div>`;
+  const wk=s.records.filter(r=>r.kml!==null).slice(0,10).reverse();
+  const ctx=document.getElementById('chart-kml').getContext('2d');
+  if(window._chart)window._chart.destroy();
+  if(wk.length)window._chart=new Chart(ctx,{type:'line',data:{labels:wk.map(r=>r.date.slice(5)),datasets:[{data:wk.map(r=>r.kml),borderColor:'#f5a623',fill:true,backgroundColor:'rgba(245,166,35,.08)',tension:.4,pointBackgroundColor:'#f5a623',pointRadius:4,borderWidth:2},{data:wk.map(()=>veh.threshold),borderColor:'rgba(239,68,68,.4)',borderDash:[4,4],pointRadius:0,borderWidth:1,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#8892aa',font:{size:10}}},y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#8892aa',font:{size:10}},min:Math.max(0,(s.worst||0)-2)}}}});
+  const last=s.records[0];
+  document.getElementById('d-last').innerHTML=last?`<div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;color:var(--muted)">${last.date} · ${last.station||'Sin gasolinera'}</div><div style="font-size:15px;margin-top:4px">${last.liters}L · $${last.price}/L · <span style="color:var(--amber)">$${Math.round(last.liters*last.price)}</span></div><div style="font-size:12px;color:var(--muted);margin-top:2px">Odómetro: ${last.km.toLocaleString()} km</div></div><div style="text-align:right">${last.kml?`<div style="font-size:26px;font-weight:700;color:${last.kml>=veh.threshold?'var(--green)':last.kml>=(veh.threshold*.85)?'var(--amber)':'var(--red)'};font-family:var(--mono)">${last.kml}</div><div style="font-size:11px;color:var(--muted)">km/L</div>`:'<div style="font-size:13px;color:var(--muted)">Parcial</div>'}</div></div>`:'<div class="empty" style="padding:16px"><div class="ei">⛽</div><div class="et">Sin registros aún.</div></div>';
+  renderTips(veh,s);
+}
+
+// ══ TIPS ENGINE ══
+function renderTips(veh,s){
+  const tips=[];const maint=gm()[activeVeh]||{};const cur=s.lastKm||0;const wk=s.records.filter(r=>r.kml!==null);let score=100;
+  if(s.avg!==null){const pct=(s.avg/veh.threshold)*100;if(pct<75){score-=30;tips.push({i:'🔴',w:'tiw-r',c:'r',t:'Rendimiento muy bajo',d:`Tu promedio (${s.avg} km/L) está ${Math.round(100-pct)}% por debajo del mínimo para tu ${veh.name}. Puede costarte ~$${Math.round((veh.threshold-s.avg)*30*25)} MXN extra al mes.`,a:'Revisar motor urgente'});}else if(pct<90){score-=15;tips.push({i:'⚠️',w:'tiw-a',c:'a',t:'Rendimiento por debajo del óptimo',d:`Tu promedio (${s.avg} km/L) está ligeramente bajo. Un mantenimiento preventivo puede recuperar 1–2 km/L.`,a:'Ver sugerencias'});}else tips.push({i:'✅',w:'tiw-g',c:'g',t:'Rendimiento saludable',d:`Tu ${veh.name} rinde bien con ${s.avg} km/L. Sigue con el mantenimiento preventivo.`,a:null});}
+  if(wk.length>=3){const l3=wk.slice(0,3).map(r=>r.kml),tr=l3[0]-l3[2];if(tr<-1.5){score-=15;tips.push({i:'📉',w:'tiw-r',c:'r',t:'Tendencia a la baja',d:`Tu rendimiento cayó ${Math.abs(tr).toFixed(1)} km/L en las últimas 3 cargas (${l3[2]}→${l3[0]} km/L). Revisa llantas, filtro de aire y tipo de gasolina.`,a:'Ver historial'});}else if(tr>1)tips.push({i:'📈',w:'tiw-g',c:'g',t:'Rendimiento mejorando',d:`Tu rendimiento subió ${tr.toFixed(1)} km/L en las últimas 3 cargas. El mantenimiento reciente está dando resultados.`,a:null});}
+  Object.entries(MAINT_CFG).forEach(([k,m])=>{const last=maint[k]||0,rem=(last+m.km)-cur;if(rem<=0){score-=12;tips.push({i:m.i,w:'tiw-r',c:'r',t:`${m.n} — VENCIDO`,d:MAINT_TIPS[k]||'',a:`Hace ${Math.abs(rem).toLocaleString()} km`});}else if(rem<=m.km*.15){score-=5;tips.push({i:m.i,w:'tiw-a',c:'a',t:`${m.n} — Próximamente`,d:MAINT_TIPS[k]||'',a:`Faltan ~${rem.toLocaleString()} km`});}});
+  if(s.avg!==null&&s.avg<veh.threshold)tips.push({i:'🔵',w:'tiw-b',c:'b',t:'Calibra las llantas',d:`El calor dilata el aire y baja la presión. Con 5 PSI menos puedes perder 0.5 km/L. Revísalas en la mañana en frío.`,a:'Revisar temprano'});
+  if(wk.length>=2&&s.records.filter(r=>r.partial).length/s.records.length>0.4)tips.push({i:'📊',w:'tiw-b',c:'b',t:'Haz llenados completos',d:'Tienes muchos llenados parciales. Para que el km/L sea preciso, intenta siempre llenar el tanque completamente.',a:null});
+  tips.push({i:'💡',w:'tiw-b',c:'b',t:'Consejo de conducción',d:'Los arranques bruscos y el ralentí largo son los mayores desperdiciadores en ciudad. Acelera suave y apaga el motor si esperas más de 1 minuto.',a:null});
+  score=Math.max(0,Math.min(100,score));
+  const sc=score>=80?'var(--green)':score>=55?'var(--amber)':'var(--red)';
+  const sl=score>=80?'Tu vehículo está en buena forma.':score>=55?'Rendimiento aceptable, hay margen de mejora.':'Atención requerida — hay problemas activos.';
+  const sh=`<div class="tscore"><div><div class="tsn" style="color:${sc}">${score}</div><div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">/ 100</div></div><div style="flex:1"><div style="height:6px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:6px"><div style="height:100%;width:${score}%;background:${sc};border-radius:4px"></div></div><div style="font-size:12px;color:var(--muted);line-height:1.4">${sl}</div></div></div>`;
+  const th=tips.map(t=>`<div class="tip"><div class="tiw ${t.w}">${t.i}</div><div class="tib"><div class="tit ${t.c}">${t.t}</div><div class="tid">${t.d}</div>${t.a?`<span class="tia">${t.a}</span>`:''}</div></div>`).join('');
+  const el=document.getElementById('d-tips');if(el)el.innerHTML=s.rawRecords.length===0?'<div class="empty" style="padding:16px"><div class="ei">💡</div><div class="et">Registra al menos 2 cargas para ver el diagnóstico.</div></div>':sh+th;
+}
+
+// ══ MAP ══
+function initMap(){
+  if(map)return;
+  map=L.map('lmap',{zoomControl:true}).setView([20.9674,-89.6235],13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
+  setTimeout(()=>map.invalidateSize(),300);
+  document.getElementById('gps-info').innerHTML=`<div class="gps-notice" style="margin-top:8px"><b>⚠ GPS no activo aún</b><br>Presiona "Ubicarme". Si Chrome no pide permiso, el archivo necesita estar en <b>https://</b> — consulta la sección GPS en Config ⚙.</div>`;
+}
+
+function locateMe(){
+  document.getElementById('gps-info').innerHTML='';
+  if(!navigator.geolocation){
+    document.getElementById('gps-info').innerHTML=`<div class="ab info" style="margin-top:8px"><span class="ai">ℹ️</span><div class="at">GPS no disponible. Ve a Config ⚙ para ver cómo activarlo.</div></div>`;
+    return;
+  }
+  showToast('Buscando ubicación...');
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const{latitude:la,longitude:lo,accuracy:ac}=pos.coords;
+    if(!map)initMap();
+    map.setView([la,lo],15);
+    if(userMark)userMark.remove();if(userCirc)userCirc.remove();
+    const icon=L.divIcon({html:'<div style="width:16px;height:16px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 0 0 5px rgba(59,130,246,.25)"></div>',iconSize:[22,22],iconAnchor:[11,11],className:''});
+    userMark=L.marker([la,lo],{icon}).addTo(map).bindPopup('📍 Tu ubicación');
+    userCirc=L.circle([la,lo],{radius:ac,color:'#3b82f6',fillColor:'#3b82f6',fillOpacity:.07,weight:1}).addTo(map);
+    document.getElementById('gps-info').innerHTML='';
+    fetchStas(la,lo);
+  },err=>{
+    const msgs={1:'Permiso denegado. Ve a Ajustes → Chrome → Ubicación y actívala.',2:'Señal GPS débil. Intenta al aire libre.',3:'Tiempo de espera agotado. Intenta de nuevo.'};
+    document.getElementById('gps-info').innerHTML=`<div class="ab" style="margin-top:8px"><span class="ai">🔴</span><div class="at"><b>Error GPS:</b> ${msgs[err.code]||'Error desconocido'}</div></div>`;
+    showToast('No se pudo obtener ubicación','err');
+  },{enableHighAccuracy:true,timeout:15000});
+}
+
+async function fetchStas(la,lo){
+  document.getElementById('map-btitle').textContent='🔍 Buscando gasolineras...';
+  document.getElementById('map-stas').innerHTML='<div style="color:var(--muted);font-size:13px;padding:8px 0">Consultando OpenStreetMap...</div>';
+  staMrks.forEach(m=>m.remove());staMrks=[];
+  const q=`[out:json][timeout:15];(node["amenity"="fuel"](around:3000,${la},${lo});way["amenity"="fuel"](around:3000,${la},${lo}););out center;`;
+  try{
+    const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:q});
+    const data=await r.json();const els=data.elements||[];
+    if(!els.length){document.getElementById('map-btitle').textContent='Gasolineras cercanas';document.getElementById('map-stas').innerHTML='<div style="color:var(--muted);font-size:13px">Sin gasolineras en 3km.</div>';return;}
+    const stas=els.map(el=>{const sla=el.lat||el.center?.lat,slo=el.lon||el.center?.lon;return{n:el.tags?.name||el.tags?.brand||'Gasolinera',la:sla,lo:slo,d:dkm(la,lo,sla,slo),b:el.tags?.brand||''};}).sort((a,b)=>a.d-b.d).slice(0,12);
+    stas.forEach(st=>{const m=L.marker([st.la,st.lo]).addTo(map);m.bindPopup(`<div class="pname">⛽ ${st.n}</div><div class="pdist">📍 ${(st.d*1000).toFixed(0)}m de aquí</div><button class="preg" onclick="openModal('mod-quick','${st.n.replace(/'/g,"\\'")}')">+ Registrar carga aquí</button>`);staMrks.push(m);});
+    document.getElementById('map-btitle').textContent=`⛽ Gasolineras (${stas.length})`;
+    document.getElementById('map-stas').innerHTML=stas.map(st=>`<div class="stac" onclick="map.setView([${st.la},${st.lo}],17)"><span style="font-size:22px">⛽</span><div style="flex:1"><div class="stac-n">${st.n}</div><div class="stac-d">📍 ${(st.d*1000).toFixed(0)}m · ${st.b||'Sin marca'}</div></div><button class="stac-btn" onclick="event.stopPropagation();openModal('mod-quick','${st.n.replace(/'/g,"\\'")}')">+ Cargar</button></div>`).join('');
+  }catch{document.getElementById('map-btitle').textContent='Error';document.getElementById('map-stas').innerHTML='<div style="color:var(--red);font-size:13px">Error al buscar. Verifica conexión.</div>';}
+}
+
+function dkm(la1,lo1,la2,lo2){const R=6371,dL=(la2-la1)*Math.PI/180,dO=(lo2-lo1)*Math.PI/180;const a=Math.sin(dL/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dO/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+
+function toggleRoute(){routeRec?stopRoute():startRoute();}
+function startRoute(){
+  if(!navigator.geolocation){showToast('GPS no disponible','err');return;}
+  routeRec=true;routePts=[];if(routePoly){routePoly.remove();routePoly=null;}
+  const btn=document.getElementById('rt-btn');btn.textContent='⏹ Detener';btn.classList.add('rec');
+  showToast('▶ Grabando ruta...');if(!map)initMap();
+  watchId=navigator.geolocation.watchPosition(pos=>{
+    const{latitude:la,longitude:lo}=pos.coords;routePts.push([la,lo]);
+    if(!userMark){const ic=L.divIcon({html:'<div style="width:16px;height:16px;background:#f5a623;border:3px solid white;border-radius:50%"></div>',iconSize:[22,22],iconAnchor:[11,11],className:''});userMark=L.marker([la,lo],{icon:ic}).addTo(map);}else userMark.setLatLng([la,lo]);
+    map.panTo([la,lo]);if(routePoly)routePoly.remove();if(routePts.length>1)routePoly=L.polyline(routePts,{color:'#f5a623',weight:5,opacity:.9}).addTo(map);
+  },{enableHighAccuracy:true,maximumAge:2000,timeout:10000});
+}
+function stopRoute(){
+  routeRec=false;if(watchId){navigator.geolocation.clearWatch(watchId);watchId=null;}
+  const btn=document.getElementById('rt-btn');btn.textContent='▶ Ruta';btn.classList.remove('rec');
+  if(routePts.length<2){showToast('Ruta muy corta','err');return;}
+  const dist=routePts.reduce((s,p,i)=>i===0?0:s+dkm(routePts[i-1][0],routePts[i-1][1],p[0],p[1]),0);
+  const routes=gr();const veh=getActiveVeh();
+  routes.push({id:Date.now().toString(),date:new Date().toLocaleDateString('es-MX'),veh:veh?.name||'—',pts:routePts,dist:Math.round(dist*10)/10,cnt:routePts.length});
+  sr(routes);showToast(`✓ Ruta grabada — ${Math.round(dist*10)/10} km`);renderRoutes();
+}
+
+// ══ VEHICLE MANAGEMENT ══
+function openAddVehicle(id){
+  document.getElementById('mv-title').textContent=id?'Editar vehículo':'Agregar vehículo';
+  document.getElementById('mv-id').value=id||'';
+  if(id){const v=getVeh().find(x=>x.id===id);if(v){document.getElementById('mv-name').value=v.name;document.getElementById('mv-year').value=v.year;document.getElementById('mv-fuel').value=v.fuel||'magna';document.getElementById('mv-thresh').value=v.threshold;document.querySelectorAll('.eg-opt').forEach(el=>{el.classList.toggle('sel',el.dataset.e===v.icon);});}}
+  else{document.getElementById('mv-name').value='';document.getElementById('mv-year').value='';document.getElementById('mv-thresh').value='';document.querySelectorAll('.eg-opt').forEach((el,i)=>el.classList.toggle('sel',i===0));}
+  openModal('mod-veh');
+}
+
+function saveVehicle(){
+  const id=document.getElementById('mv-id').value;
+  const name=document.getElementById('mv-name').value.trim();
+  const year=document.getElementById('mv-year').value.trim();
+  const fuel=document.getElementById('mv-fuel').value;
+  const threshold=parseFloat(document.getElementById('mv-thresh').value);
+  const icon=document.querySelector('.eg-opt.sel')?.dataset.e||'🚗';
+  if(!name||!threshold){showToast('Completa nombre y rendimiento mínimo','err');return;}
+  const vehs=getVeh();
+  if(id){const idx=vehs.findIndex(v=>v.id===id);if(idx>=0)vehs[idx]={...vehs[idx],name,year,fuel,threshold,icon};}
+  else{const nid='v_'+Date.now();vehs.push({id:nid,name,year,fuel,threshold,icon});activeVeh=nid;}
+  sv(vehs);closeModal('mod-veh');showToast('✓ Vehículo guardado');renderAll();
+}
+
+function deleteVehicle(id){
+  if(!confirm('¿Eliminar este vehículo y todos sus registros?'))return;
+  const vehs=getVeh().filter(v=>v.id!==id);sv(vehs);
+  const d=gd();delete d[id];sd(d);
+  const m=gm();delete m[id];sm(m);
+  if(activeVeh===id)activeVeh=vehs[0]?.id||'';
+  showToast('Vehículo eliminado');renderAll();
+}
+
+function resetVehicleData(){
+  const veh=getActiveVeh();if(!veh)return;
+  if(!confirm(`¿Borrar TODOS los registros de ${veh.name}? Los datos de gasolina y mantenimiento se perderán. El vehículo no se elimina.`))return;
+  const d=gd();d[activeVeh]=[];sd(d);
+  const m=gm();m[activeVeh]={};sm(m);
+  showToast(`✓ Registros de ${veh.name} borrados`);renderAll();
+}
+
+function renderVehList(){
+  const vehs=getVeh();const list=document.getElementById('veh-list');if(!list)return;
+  if(!vehs.length){list.innerHTML='<div style="color:var(--muted);font-size:13px;margin-bottom:8px">Aún no tienes vehículos registrados.</div>';return;}
+  list.innerHTML=vehs.map(v=>`<div class="vi"><div class="vi-icon">${v.icon}</div><div class="vi-info"><div class="vi-name">${v.name}</div><div class="vi-meta">${v.year||'—'} · ${v.fuel||'Magna'} · Mín: ${v.threshold} km/L</div></div><div class="vi-actions"><button class="vi-btn" onclick="openAddVehicle('${v.id}')">✏️</button><button class="vi-btn del" onclick="deleteVehicle('${v.id}')">🗑</button></div></div>`).join('');
+}
+
+// ══ REGISTER ══
+function toggleNoKm(cb){
+  const kmInput=document.getElementById('r-km');
+  const notice=document.getElementById('no-km-notice');
+  if(cb.checked){
+    kmInput.disabled=true;kmInput.value='';
+    kmInput.style.opacity='.3';kmInput.style.pointerEvents='none';
+    notice.style.display='block';
+  }else{
+    kmInput.disabled=false;kmInput.style.opacity='1';kmInput.style.pointerEvents='auto';
+    notice.style.display='none';
+  }
+}
+
+function saveRecord(){
+  const noKm=document.getElementById('r-no-km').checked;
+  const km=noKm?null:parseFloat(document.getElementById('r-km').value);
+  const totalPaid=parseFloat(document.getElementById('r-total').value);
+  const price=parseFloat(document.getElementById('r-price').value);
+  const sta=document.getElementById('r-sta').value.trim();
+  const date=document.getElementById('r-date').value;
+  const full=document.getElementById('r-full').checked;
+  const notes=document.getElementById('r-notes').value.trim();
+  if(!noKm&&!km){showToast('Ingresa el odómetro o activa "Olvidé el odómetro"','err');return;}
+  if(!totalPaid||!price||!date){showToast('Completa los campos obligatorios','err');return;}
+  if(!activeVeh){showToast('Selecciona un vehículo primero','err');return;}
+  const liters=Math.round(totalPaid/price*100)/100;
+  const d=gd(),recs=d[activeVeh]||[];
+  if(!noKm){
+    const lastKm=recs.filter(r=>r.km).length?Math.max(...recs.filter(r=>r.km).map(r=>r.km)):0;
+    if(km<=lastKm&&lastKm>0){document.getElementById('r-km-err').classList.add('show');return;}
+  }
+  document.getElementById('r-km-err').classList.remove('show');
+  recs.push({id:Date.now().toString(),km,liters,price,totalPaid,station:sta,date,full:noKm?false:full,notes,noKm});
+  d[activeVeh]=recs;sd(d);
+  ['r-km','r-total','r-price','r-sta','r-notes'].forEach(id=>{const el=document.getElementById(id);if(el){el.value='';el.disabled=false;el.style.opacity='1';el.style.pointerEvents='auto';}});
+  document.getElementById('r-full').checked=true;
+  document.getElementById('r-no-km').checked=false;
+  document.getElementById('no-km-notice').style.display='none';
+  const ct=document.getElementById('cost-total');if(ct){ct.textContent='—';ct.style.color='var(--amber)';}
+  const un=document.getElementById('cost-liters-unit');if(un)un.textContent='';
+  const va=document.getElementById('cost-vs-avg');if(va)va.textContent='';
+  const cpk=document.getElementById('cost-per-km');if(cpk)cpk.textContent='';
+  showToast(`✓ Carga registrada — ${liters}L${noKm?' (sin odómetro)':''}`);renderAll();goPage('dash',document.querySelectorAll('.nb')[0]);
+}
+
+// ══ QUICK SAVE FROM MAP ══
+function saveQuick(){
+  const km=parseFloat(document.getElementById('mq-km').value),totalPaid=parseFloat(document.getElementById('mq-lit').value),price=parseFloat(document.getElementById('mq-price').value),full=document.getElementById('mq-full').checked;
+  if(!km||!totalPaid||!price){showToast('Completa todos los campos','err');return;}
+  if(!activeVeh){showToast('Selecciona un vehículo primero','err');return;}
+  const liters=Math.round(totalPaid/price*100)/100;
+  const d=gd(),recs=d[activeVeh]||[],lastKm=recs.length?Math.max(...recs.map(r=>r.km)):0;
+  if(km<=lastKm&&recs.length>0){showToast('El km debe ser mayor al anterior','err');return;}
+  recs.push({id:Date.now().toString(),km,liters,price,totalPaid,station:pendingSta,date:new Date().toISOString().slice(0,10),full,notes:''});
+  d[activeVeh]=recs;sd(d);closeModal('mod-quick');showToast(`✓ Carga registrada — ${liters} litros`);renderAll();
+}
+
+function calcLiters(){
+  const total=parseFloat(document.getElementById('r-total').value)||0;
+  const price=parseFloat(document.getElementById('r-price').value)||0;
+  const litEl=document.getElementById('cost-total');
+  const unitEl=document.getElementById('cost-liters-unit');
+  const vaEl=document.getElementById('cost-vs-avg');
+  const cpkEl=document.getElementById('cost-per-km');
+  const alEl=document.getElementById('cost-price-alert');
+  if(unitEl)unitEl.textContent='';
+  if(!total&&!price){if(litEl)litEl.textContent='—';if(vaEl)vaEl.textContent='';if(cpkEl)cpkEl.textContent='';if(alEl)alEl.style.display='none';return;}
+  if(!total||!price){if(litEl){litEl.textContent='—';litEl.style.color='var(--muted)';}return;}
+  const liters=Math.round(total/price*100)/100;
+  if(litEl){litEl.textContent=liters.toFixed(2);litEl.style.color='var(--amber)';}
+  if(unitEl)unitEl.textContent='litros';
+  const d=gd()[activeVeh]||[];
+  if(d.length>0){
+    const avgPrice=d.reduce((s,r)=>s+r.price,0)/d.length;
+    const diff=price-avgPrice;
+    if(alEl)alEl.style.display=diff>2?'inline-block':'none';
+    if(vaEl){
+      if(diff>2){vaEl.style.color='var(--red)';vaEl.textContent=`$${diff.toFixed(2)} más caro que tu promedio ($${avgPrice.toFixed(2)}/L)`;}
+      else if(diff<-2){vaEl.style.color='var(--green)';vaEl.textContent=`$${Math.abs(diff).toFixed(2)} más barato que tu promedio ✓`;}
+      else{vaEl.style.color='var(--muted)';vaEl.textContent=`Similar a tu promedio ($${avgPrice.toFixed(2)}/L)`;}
+    }
+    const s=getStats(activeVeh);
+    if(s.avg&&cpkEl)cpkEl.textContent=`Costo estimado: $${(price/s.avg).toFixed(2)}/km`;
+  }
+}
+
+function renderMonthly(){
+  const el=document.getElementById('d-monthly');if(!el)return;
+  const d=gd()[activeVeh]||[];
+  if(!d.length){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:8px 0">Sin datos aún.</div>';return;}
+  const months={};
+  d.forEach(r=>{const k=r.date.slice(0,7);if(!months[k])months[k]={cost:0,liters:0,fills:0};months[k].cost+=r.liters*r.price;months[k].liters+=r.liters;months[k].fills++;});
+  const sorted=Object.entries(months).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,4);
+  const maxCost=Math.max(...sorted.map(([,v])=>v.cost));
+  el.innerHTML=sorted.map(([k,v],i)=>{
+    const [yr,mo]=k.split('-');
+    const label=new Date(yr,parseInt(mo)-1,1).toLocaleDateString('es-MX',{month:'long',year:'numeric'});
+    const pct=Math.round(v.cost/maxCost*100);
+    const prev=sorted[i+1];
+    let trend='';
+    if(prev){const diff=v.cost-prev[1].cost;trend=`<span style="color:${diff<=0?'var(--green)':'var(--red)'};">${diff<=0?'▼ $'+Math.abs(diff).toFixed(0)+' vs anterior':'▲ $'+diff.toFixed(0)+' vs anterior'}</span>`;}
+    return`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px"><span style="font-size:13px;font-weight:600;text-transform:capitalize">${label}</span><span style="font-size:17px;font-weight:700;color:var(--amber);font-family:var(--mono)">$${Math.round(v.cost).toLocaleString('es-MX')}</span></div><div style="height:6px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:4px"><div style="height:100%;width:${pct}%;background:var(--amber);border-radius:4px"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)">${trend||'<span></span>'}<span>${v.liters.toFixed(1)}L · ${v.fills} carga${v.fills>1?'s':''}</span></div></div>`;
+  }).join('');
+}
+
+function renderPriceStats(){
+  const el=document.getElementById('d-price-stats');if(!el)return;
+  const d=gd()[activeVeh]||[];
+  if(!d.length){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:8px 0">Sin datos aún.</div>';return;}
+  const prices=d.map(r=>r.price);
+  const avg=prices.reduce((s,p)=>s+p,0)/prices.length;
+  const min=Math.min(...prices),max=Math.max(...prices);
+  const minR=d.find(r=>r.price===min),maxR=d.find(r=>r.price===max);
+  const recent=[...d].sort((a,b)=>b.date.localeCompare(a.date))[0]?.price||0;
+  const trend=recent-avg;
+  const s=getStats(activeVeh);const cpk=s.avg?avg/s.avg:null;
+  el.innerHTML=`<div class="mg" style="margin-bottom:12px">
+    <div class="m"><div class="ml">Precio promedio</div><div class="mv" style="font-size:18px">$${avg.toFixed(2)}<span class="mu">/L</span></div></div>
+    <div class="m"><div class="ml">Costo por km</div><div class="mv warn" style="font-size:18px">${cpk?'$'+cpk.toFixed(2):'—'}<span class="mu">/km</span></div></div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--panel2);border-radius:8px;padding:10px 12px"><div><div style="font-size:11px;color:var(--muted)">💚 Precio más barato</div><div style="font-size:15px;font-weight:700;color:var(--green)">$${min.toFixed(2)}/L</div></div><div style="text-align:right;font-size:11px;color:var(--muted)">${minR?.date||''}<br>${minR?.station||'—'}</div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--panel2);border-radius:8px;padding:10px 12px"><div><div style="font-size:11px;color:var(--muted)">🔴 Precio más caro</div><div style="font-size:15px;font-weight:700;color:var(--red)">$${max.toFixed(2)}/L</div></div><div style="text-align:right;font-size:11px;color:var(--muted)">${maxR?.date||''}<br>${maxR?.station||'—'}</div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--panel2);border-radius:8px;padding:10px 12px"><div><div style="font-size:11px;color:var(--muted)">📅 Último precio</div><div style="font-size:15px;font-weight:700;color:${Math.abs(trend)<1?'var(--txt)':trend>0?'var(--red)':'var(--green)'}">$${recent.toFixed(2)}/L</div></div><div style="font-size:11px;color:${trend>1?'var(--red)':trend<-1?'var(--green)':'var(--muted)'}">${Math.abs(trend)>0.5?(trend>0?'▲ $'+trend.toFixed(2)+' vs promedio':'▼ $'+Math.abs(trend).toFixed(2)+' vs promedio'):'Similar al promedio'}</div></div>
+  </div>`;
+}
+
+function exportCSV(){
+  const vehs=getVeh();if(!vehs.length){showToast('Sin datos para exportar','err');return;}
+  let csv='Vehículo,Fecha,Odómetro (km),Litros,Precio/L ($),Total pagado ($),Gasolinera,Km/L,Llenado completo,Notas\n';
+  vehs.forEach(v=>{const s=getStats(v.id);s.records.forEach(r=>{csv+=`"${v.name}","${r.date}",${r.km||''},"${r.liters}","${r.price}","${(r.totalPaid||(r.liters*r.price)).toFixed(2)}","${r.station||''}","${r.kml||''}","${r.full?'Sí':'No'}","${r.notes||''}"\n`;});});
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=`GasoTracker_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+  URL.revokeObjectURL(url);showToast('✓ CSV exportado');
+}
+
+// ══ HISTORY ══
+function renderHist(){
+  renderVehTabs('h-vt');
+  const veh=getActiveVeh();const s=getStats(activeVeh);const list=document.getElementById('h-list');
+  if(!s.records.length){list.innerHTML='<div class="empty"><div class="ei">📋</div><div class="et">Sin registros aún.</div></div>';return;}
+  list.innerHTML=s.records.map(r=>{
+    const kmTxt=r.km?` · ${r.km.toLocaleString()} km`:'';
+    const badge=r.noKm
+      ?'<span style="background:rgba(245,166,35,.15);color:var(--amber);font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;margin-left:6px">SIN KM</span>'
+      :r.full?'':`<span style="color:var(--muted);font-size:11px">[parcial]</span>`;
+    const kmlBox=r.kml
+      ?`<div class="hkml ${r.kml>=(veh?.threshold||9)?'good':r.kml>=(veh?.threshold||9)*.85?'warn':'bad'}">${r.kml}</div><div style="font-size:11px;color:var(--muted)">km/L</div>`
+      :`<div class="hkml part">${r.noKm?'sin km':r.partial?'parcial':'—'}</div>`;
+    return`<div class="hi"><div class="hil"><div class="hid">${r.date} ${badge}</div><div class="him">${r.liters}L · $${r.price}/L · <b>$${Math.round(r.liters*r.price)}</b>${kmTxt}</div>${r.station?`<div class="his">📍 ${r.station}</div>`:''}${r.notes?`<div style="font-size:11px;color:var(--muted)">📝 ${r.notes}</div>`:''}</div><div class="hir">${kmlBox}</div><button class="hdel" onclick="delRecord('${r.id}')">🗑</button></div>`;
+  }).join('');
+
+function delRecord(id){if(!confirm('¿Eliminar?'))return;const d=gd();d[activeVeh]=(d[activeVeh]||[]).filter(r=>r.id!==id);sd(d);renderAll();showToast('Eliminado');}
+
+// ══ STATIONS COMPARE ══
+let staTab='kml';
+function setStaTab(tab){
+  staTab=tab;
+  document.querySelectorAll('.sta-tab').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('sta-tab-'+tab);if(btn)btn.classList.add('active');
+  renderStations();
+}
+
+function renderStations(){
+  renderVehTabs('sta-vt');
+  const s=getStats(activeVeh);
+  const map2={};
+  s.records.filter(r=>r.station).forEach(r=>{
+    if(!map2[r.station])map2[r.station]={kmlSum:0,kmlCnt:0,priceSum:0,priceCnt:0,costSum:0,fills:0,lastDate:''};
+    const st=map2[r.station];
+    if(r.kml){st.kmlSum+=r.kml;st.kmlCnt++;}
+    st.priceSum+=r.price;st.priceCnt++;
+    st.costSum+=r.liters*r.price;st.fills++;
+    if(r.date>st.lastDate)st.lastDate=r.date;
+  });
+  const list=document.getElementById('sta-list');
+  const winnerEl=document.getElementById('sta-winner');
+  if(!Object.keys(map2).length){
+    if(winnerEl)winnerEl.innerHTML='';
+    list.innerHTML='<div class="empty"><div class="ei">🗺</div><div class="et">Registra cargas con gasolinera para ver el ranking.</div></div>';return;
+  }
+  const entries=Object.entries(map2).map(([n,v])=>({n,avgKml:v.kmlCnt?Math.round(v.kmlSum/v.kmlCnt*100)/100:null,avgPrice:Math.round(v.priceSum/v.priceCnt*100)/100,totalCost:Math.round(v.costSum),fills:v.fills,lastDate:v.lastDate}));
+  let sorted;
+  if(staTab==='kml')sorted=[...entries].filter(e=>e.avgKml).sort((a,b)=>b.avgKml-a.avgKml);
+  else if(staTab==='price')sorted=[...entries].sort((a,b)=>a.avgPrice-b.avgPrice);
+  else sorted=[...entries].sort((a,b)=>b.totalCost-a.totalCost);
+  if(!sorted.length){if(winnerEl)winnerEl.innerHTML='';list.innerHTML='<div style="color:var(--muted);font-size:13px">Sin datos suficientes para este ranking.</div>';return;}
+  const maxKml=Math.max(...entries.filter(e=>e.avgKml).map(e=>e.avgKml)||[1]);
+  const maxPrice=Math.max(...entries.map(e=>e.avgPrice));
+  const minPrice=Math.min(...entries.map(e=>e.avgPrice));
+  const maxCost=Math.max(...entries.map(e=>e.totalCost));
+  const winner=sorted[0];
+  const winnerIcon=staTab==='kml'?'🏆':staTab==='price'?'💚':'📊';
+  const winnerVal=staTab==='kml'?winner.avgKml+' km/L':staTab==='price'?'$'+winner.avgPrice+'/L':'$'+winner.totalCost.toLocaleString('es-MX');
+  if(winnerEl)winnerEl.innerHTML=`<div class="winner-card"><div class="winner-trophy">${winnerIcon}</div><div class="winner-info"><div class="winner-label">${staTab==='kml'?'Mejor rendimiento':staTab==='price'?'Precio más barato':'Mayor gasto total'}</div><div class="winner-name">${winner.n}</div><div class="winner-meta">${winner.fills} carga${winner.fills>1?'s':''} · Última: ${winner.lastDate}</div></div><div class="winner-val"><div class="winner-num">${winnerVal}</div></div></div>`;
+  list.innerHTML=sorted.map((e,i)=>{
+    const pos=i+1,posCls=pos===1?'pos-1':pos===2?'pos-2':pos===3?'pos-3':'pos-n';
+    const mainVal=staTab==='kml'?(e.avgKml?e.avgKml+' km/L':'sin datos'):staTab==='price'?'$'+e.avgPrice+'/L':'$'+e.totalCost.toLocaleString('es-MX');
+    const mainColor=staTab==='kml'?(e.avgKml&&e.avgKml===maxKml?'var(--green)':'var(--txt)'):staTab==='price'?(e.avgPrice===minPrice?'var(--green)':e.avgPrice===maxPrice?'var(--red)':'var(--txt)'):'var(--blue)';
+    const kmlPct=e.avgKml?Math.round(e.avgKml/maxKml*100):0;
+    const pricePct=maxPrice>minPrice?Math.round((e.avgPrice-minPrice)/(maxPrice-minPrice)*100):50;
+    const costPct=maxCost?Math.round(e.totalCost/maxCost*100):0;
+    return`<div class="sta-rank"><div class="sta-rank-top"><div class="sta-rank-pos ${posCls}">${pos}</div><div class="sta-rank-name">📍 ${e.n}</div><div class="sta-rank-main" style="color:${mainColor}">${mainVal}</div></div><div><div class="sta-bar-row"><span class="sta-bar-label">km/L</span><div class="sta-bar-bg"><div class="sta-bar-fill-g" style="width:${kmlPct}%"></div></div><span class="sta-bar-val ok">${e.avgKml||'—'}</span></div><div class="sta-bar-row"><span class="sta-bar-label">precio</span><div class="sta-bar-bg"><div class="sta-bar-fill-r" style="width:${pricePct}%"></div></div><span class="sta-bar-val" style="color:${e.avgPrice===minPrice?'var(--green)':e.avgPrice===maxPrice?'var(--red)':'var(--txt)'}">$${e.avgPrice}/L</span></div><div class="sta-bar-row"><span class="sta-bar-label">gastado</span><div class="sta-bar-bg"><div class="sta-bar-fill-b" style="width:${costPct}%"></div></div><span class="sta-bar-val" style="color:var(--blue)">$${e.totalCost.toLocaleString('es-MX')}</span></div></div><div class="sta-rank-footer"><span>${e.fills} carga${e.fills>1?'s':''}</span><span>Última: ${e.lastDate}</span></div></div>`;
+  }).join('');
+}
+
+// ══ MAINTENANCE ══
+function renderMaintPage(){
+  renderVehTabs('maint-vt');renderVehTabs('reset-vt');
+  const s=getStats(activeVeh),maint=gm()[activeVeh]||{},cur=s.lastKm||0;
+  document.getElementById('maint-list').innerHTML=Object.entries(MAINT_CFG).map(([k,m])=>{
+    const last=maint[k]||0,rem=(last+m.km)-cur,pct=Math.max(0,Math.min(100,Math.round((cur-last)/m.km*100)));
+    let badge,bc;if(rem<=0){badge='Vencido';bc='sb-due';}else if(rem<=m.km*.15){badge='Próximo';bc='sb-soon';}else{badge='Al corriente';bc='sb-ok';}
+    return`<div class="mi"><div class="mi-icon">${m.i}</div><div class="mi-info"><div class="mi-name">${m.n}</div><div class="mi-detail">Cada ${m.km.toLocaleString()} km · ${last?'Último: '+last.toLocaleString()+' km':'Sin registro'}</div><div style="margin-top:6px;height:4px;background:var(--border);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${rem<=0?'var(--red)':rem<=m.km*.15?'var(--amber)':'var(--green)'};border-radius:4px"></div></div></div><div class="mi-status"><div class="sb ${bc}">${badge}</div><div class="mi-km">${rem>0?'~'+rem.toLocaleString()+' km':'+'+(Math.abs(rem)).toLocaleString()+' km'}</div></div></div>`;
+  }).join('');
+  const mkm=document.getElementById('m-km');if(mkm&&cur)mkm.placeholder=`Ej: ${cur}`;
+}
+
+function saveMaint(){
+  const type=document.getElementById('m-type').value,km=parseFloat(document.getElementById('m-km').value);
+  if(!km){showToast('Ingresa el odómetro','err');return;}
+  if(!activeVeh){showToast('Selecciona un vehículo','err');return;}
+  const m=gm();if(!m[activeVeh])m[activeVeh]={};m[activeVeh][type]=km;sm(m);
+  document.getElementById('m-km').value='';showToast('✓ Servicio registrado');renderMaintPage();
+}
+
+function renderRoutes(){
+  const routes=gr(),list=document.getElementById('routes-list');if(!list)return;
+  if(!routes.length){list.innerHTML='<div style="color:var(--muted);font-size:13px">Sin rutas grabadas.</div>';return;}
+  list.innerHTML=routes.slice().reverse().map(r=>`<div class="ri"><div><div style="font-size:13px;font-weight:600">📍 ${r.date} · ${r.veh}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${r.dist} km · ${r.cnt} puntos GPS</div></div><button class="rdel" onclick="delRoute('${r.id}')">🗑</button></div>`).join('');
+}
+function delRoute(id){if(!confirm('¿Eliminar ruta?'))return;sr(gr().filter(r=>r.id!==id));renderRoutes();showToast('Ruta eliminada');}
+
+// ══ MODAL & UI ══
+function openModal(id,sta){
+  if(sta){pendingSta=sta;document.getElementById('mq-title').textContent='⛽ '+sta;document.getElementById('mq-sta').textContent='📍 '+sta;const s=getStats(activeVeh);if(s.lastKm){document.getElementById('mq-km').placeholder='Ej: '+(s.lastKm+50);}['mq-km','mq-lit','mq-price'].forEach(x=>{document.getElementById(x).value='';});}
+  document.getElementById(id).style.display='flex';
+}
+function closeModal(id){document.getElementById(id).style.display='none';}
+
+function showToast(msg,type='ok'){
+  const t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(type==='err'?' err':'');
+  setTimeout(()=>t.classList.add('show'),10);setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+function goPage(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(btn)btn.classList.add('active');
+  if(id==='map'){if(!map)initMap();else setTimeout(()=>map.invalidateSize(),150);}
+  renderAll();
+}
+
+function updateStaDl(){
+  const d=gd(),all=new Set();Object.values(d).forEach(recs=>recs.forEach(r=>{if(r.station)all.add(r.station);}));
+  const dl=document.getElementById('sta-dl');if(dl)dl.innerHTML=[...all].map(s=>`<option value="${s}">`).join('');
+}
+
+function renderAll(){
+  updateStaDl();renderDash();renderMonthly();renderPriceStats();renderHist();renderStations();renderMaintPage();renderRoutes();renderVehList();
+  ['map-vt','r-vt'].forEach(id=>renderVehTabs(id,true));
+}
+
+// ══ EMOJI PICKER ══
+document.querySelectorAll('.eg-opt').forEach(el=>{el.addEventListener('click',function(){document.querySelectorAll('.eg-opt').forEach(x=>x.classList.remove('sel'));this.classList.add('sel');});});
+
+// ══ FORM EVENTS ══
+document.getElementById('r-date').value=new Date().toISOString().slice(0,10);
+document.getElementById('r-full').addEventListener('change',function(){document.getElementById('r-partial-note').style.display=this.checked?'none':'block';});
+
+// ══ INIT DATA ══
+function loadDemo(){
+  if(gv().length)return;
+  sv([{id:'swing',name:'Chevy Swing',year:'1994',icon:'🚗',fuel:'magna',threshold:8.5},{id:'attitude',name:'Dodge Attitude',year:'2018',icon:'🚙',fuel:'magna',threshold:11.0}]);
+  sd({swing:[{id:'1',km:67069,liters:40,price:24.50,totalPaid:980,station:'Pemex Constituyentes',date:'2025-04-20',full:true,notes:''},{id:'2',km:67352,liters:22,price:24.60,totalPaid:541.2,station:'Pemex Constituyentes',date:'2025-04-24',full:true,notes:''},{id:'3',km:67630,liters:41.5,price:24.70,totalPaid:1025.05,station:'G500 Circuito',date:'2025-04-28',full:true,notes:''},{id:'4',km:67900,liters:38,price:24.65,totalPaid:936.7,station:'Pemex Constituyentes',date:'2025-05-02',full:true,notes:''}],attitude:[]});
+  sm({swing:{aceite:65000,bujias:67069,filtro_aire:67069},attitude:{}});
+}
+loadDemo();
+activeVeh=gv()[0]?.id||'';
+renderAll();
+</script>
+</body>
+</html>
